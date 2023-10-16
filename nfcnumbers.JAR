@@ -1,0 +1,74 @@
+import android.app.PendingIntent;
+import android.content.Intent;
+import android.nfc.NfcAdapter;
+import android.nfc.Tag;
+import android.nfc.tech.Ndef;
+import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
+import android.widget.TextView;
+import android.widget.Toast;
+
+public class NFCActivity extends AppCompatActivity {
+
+    private NfcAdapter nfcAdapter;
+    private PendingIntent pendingIntent;
+    private TextView nfcDataTextView;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_nfc);
+
+        nfcDataTextView = findViewById(R.id.nfcDataTextView);
+
+        nfcAdapter = NfcAdapter.getDefaultAdapter(this);
+        if (nfcAdapter == null) {
+            Toast.makeText(this, "NFC non è supportato su questo dispositivo.", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
+        pendingIntent = PendingIntent.getActivity(this, 0,
+                new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), 0);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (nfcAdapter != null) {
+            nfcAdapter.enableForegroundDispatch(this, pendingIntent, null, null);
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (nfcAdapter != null) {
+            nfcAdapter.disableForegroundDispatch(this);
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if (NfcAdapter.ACTION_NDEF_DISCOVERED.equals(intent.getAction())) {
+            Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+            // Leggi i dati NDEF dal tag NFC e visualizzali nell'app.
+            Ndef ndef = Ndef.get(tag);
+            if (ndef != null) {
+                try {
+                    ndef.connect();
+                    NdefMessage ndefMessage = ndef.getNdefMessage();
+                    NdefRecord[] records = ndefMessage.getRecords();
+                    if (records.length > 0) {
+                        String nfcData = new String(records[0].getPayload());
+                        nfcDataTextView.setText("Dati NFC: " + nfcData);
+                    }
+                    ndef.close();
+                } catch (Exception e) {
+                    Toast.makeText(this, "Errore nella lettura NFC: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            }
+        }
+    }
+}
